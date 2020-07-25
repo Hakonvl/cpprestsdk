@@ -225,27 +225,27 @@ utility::string_t flatten_http_headers(const http_headers& headers)
     return flattened_headers;
 }
 
-#if defined(_WIN32)
-void parse_headers_string(_Inout_z_ utf16char* headersStr, http_headers& headers)
+void parse_headers_string(_Inout_z_ utility::char_t* headersStr, web::http::http_headers& headers)
 {
-    utf16char* context = nullptr;
-    utf16char* line = wcstok_s(headersStr, CRLF, &context);
-    while (line != nullptr)
+    utility::string_t str(headersStr);
+    std::size_t pos = str.find_first_of(_XPLATSTR("\r\n"));
+    std::size_t startpos = 0;
+    while (pos!=std::string::npos)
     {
-        const utility::string_t header_line(line);
+        const utility::string_t header_line(str, startpos, pos - startpos);
         const size_t colonIndex = header_line.find_first_of(_XPLATSTR(":"));
         if (colonIndex != utility::string_t::npos)
         {
             utility::string_t key = header_line.substr(0, colonIndex);
             utility::string_t value = header_line.substr(colonIndex + 1, header_line.length() - colonIndex - 1);
-            http::details::trim_whitespace(key);
-            http::details::trim_whitespace(value);
+            web::http::details::trim_whitespace(key);
+            web::http::details::trim_whitespace(value);
             headers.add(key, value);
         }
-        line = wcstok_s(nullptr, CRLF, &context);
+        startpos = pos + 1;
+        pos = str.find_first_of(_XPLATSTR("\r\n"), pos + 1);
     }
 }
-#endif
 
 } // namespace details
 
@@ -287,11 +287,7 @@ static const utility::char_t* stream_was_set_explicitly =
 static const utility::char_t* unsupported_charset =
     _XPLATSTR("Charset must be iso-8859-1, utf-8, utf-16, utf-16le, or utf-16be to be extracted.");
 
-http_msg_base::http_msg_base()
-    : m_http_version(http::http_version{ 0, 0 })
-    , m_headers()
-    , m_default_outstream(false)
-{}
+http_msg_base::http_msg_base() : m_http_version(http::http_version {0, 0}), m_headers(), m_default_outstream(false) {}
 
 void http_msg_base::_prepare_to_receive_data()
 {
@@ -326,7 +322,7 @@ size_t http_msg_base::_get_stream_length()
         return static_cast<size_t>(end - offset);
     }
 
-    return std::numeric_limits<size_t>::max();
+    return (std::numeric_limits<size_t>::max)();
 }
 
 size_t http_msg_base::_get_content_length(bool honor_compression)
@@ -356,7 +352,7 @@ size_t http_msg_base::_get_content_length(bool honor_compression)
                 }
             }
 
-            return std::numeric_limits<size_t>::max();
+            return (std::numeric_limits<size_t>::max)();
         }
 
         if (honor_compression && m_compressor)
@@ -365,7 +361,7 @@ size_t http_msg_base::_get_content_length(bool honor_compression)
             // up front for content encoding.  We return the uncompressed length if we can figure it out.
             headers().add(header_names::transfer_encoding, m_compressor->algorithm());
             headers().add(header_names::transfer_encoding, _XPLATSTR("chunked"));
-            return std::numeric_limits<size_t>::max();
+            return (std::numeric_limits<size_t>::max)();
         }
 
         if (headers().match(header_names::content_length, content_length))
@@ -376,7 +372,7 @@ size_t http_msg_base::_get_content_length(bool honor_compression)
         }
 
         content_length = _get_stream_length();
-        if (content_length != std::numeric_limits<size_t>::max())
+        if (content_length != (std::numeric_limits<size_t>::max)())
         {
             // The content length wasn't explicitly set, but we figured it out;
             // use it, since sending this way is more efficient than chunking
@@ -386,7 +382,7 @@ size_t http_msg_base::_get_content_length(bool honor_compression)
 
         // We don't know the content length; we'll chunk the stream
         headers().add(header_names::transfer_encoding, _XPLATSTR("chunked"));
-        return std::numeric_limits<size_t>::max();
+        return (std::numeric_limits<size_t>::max)();
     }
 
     // There is no content
